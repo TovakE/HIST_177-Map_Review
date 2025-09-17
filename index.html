@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HIST 177 Map Review</title>
+<style>
+  :root {
+    --bg:#0b1220; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
+    --accent:#3b82f6; --ok:#22c55e; --chip:#0f172a; --chip-border:#1f2937; --warn:#f59e0b;
+  }
+  html,body { height:100%; }
+  body { font-family: Inter, system-ui, Arial, sans-serif; background:var(--bg); color:#e5e7eb; margin:0; }
+  header { text-align:center; padding:10px 12px; }
+  h1 { margin:0; font-size:20px; }
+  .app { max-width: 1000px; margin: 0 auto 18px; padding: 0 12px 18px; }
+  .card { background:var(--panel); border:1px solid var(--chip-border); border-radius:12px; padding: 12px; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:center; }
+  input[type=text]{ width:min(78vw, 480px); padding:10px; font-size:15px; border:1px solid var(--chip-border); border-radius:10px; background:#0f172a; color:#e5e7eb; }
+  button { padding:9px 12px; border:none; border-radius:10px; font-size:14px; cursor:pointer; background:var(--accent); color:#fff; }
+  button.secondary{ background:#1f2937; color:#e5e7eb; }
+  button.ghost{ background:#334155; color:#fff; }
+
+  #ratioWarn { display:none; max-width:1000px; margin:0 auto 6px; padding:8px 12px; border-radius:10px; border:1px solid #7f1d1d;
+               background:rgba(185,28,28,.12); color:#fecaca; font-size:12px; }
+
+  #mapWrap {
+    position: relative;
+    width: min(95vw, 940px);
+    aspect-ratio: 1178/776;
+    margin:8px auto;
+    background:#0a0f1c center/contain no-repeat;
+    border-radius:12px;
+    border:1px solid var(--chip-border);
+    background-image:url('IMG_0074.jpeg');
+  }
+  #keys { position:absolute; inset:0; pointer-events:none; }
+  .key { position:absolute; transform: translate(-50%,-50%); background:rgba(15,23,42,.75); border:1px solid var(--chip-border); color:#fff; font-size:12px; padding:2px 6px; border-radius:8px; }
+  .key.current { background:var(--accent); font-weight:bold; box-shadow: 0 0 0 6px rgba(59,130,246,.25); }
+  .key.ok { background:rgba(34,197,94,.9); border-color:#16a34a; }
+  .muted { color:var(--muted); font-size:12px; text-align:center; }
+
+  #timer { text-align:center; font-variant-numeric: tabular-nums; margin-top:4px; }
+  #timer .t { padding:3px 8px; border-radius:999px; background:var(--chip); border:1px solid var(--chip-border); font-size:13px; }
+  #timer.warn .t { border-color:#8a6b15; color:#fbbf24; }
+  #timebar { height:6px; max-width:560px; margin:6px auto 0; background:rgba(148,163,184,.15); border-radius:999px; overflow:hidden; border:1px solid var(--chip-border); }
+  #timebar > span { display:block; height:100%; width:100%; background:linear-gradient(90deg, #22c55e, #3b82f6); transform-origin:left center; transform:scaleX(1); transition:transform .2s linear; }
+
+  .controls-card { margin-top:8px; }
+  .controls-top { margin-bottom:6px; }
+</style>
+</head>
+<body>
+<header><h1>HIST 177 Map Review</h1></header>
+<div id="ratioWarn">⚠️ The map image aspect ratio doesn't match the coordinate file. Labels may look slightly off. Consider re-exporting the map or sharing updated coordinates.</div>
+<div class="app">
+
+<div class="card">
+  <div class="row">
+    <button id="toggleKeys" class="secondary">Hide Keys</button>
+  </div>
+  <div id="mapWrap"><div id="keys"></div></div>
+</div>
+
+<div class="card controls-card">
+  <div class="row controls-top">
+    <button id="start">Start</button>
+    <button id="restart" class="ghost" disabled>Restart</button>
+  </div>
+  <p id="phase" class="muted" style="margin-top:0;">Idle</p>
+  <p id="question" style="text-align:center;margin-top:4px;">Press Start to begin</p>
+  <div id="timer"><span class="t">--</span></div>
+  <div id="timebar"><span id="timefill"></span></div>
+  <div class="row" style="margin-top:8px;">
+    <input id="guess" type="text" placeholder="Type the place name…" disabled>
+    <button id="submit" disabled>Submit</button>
+    <button id="reveal" class="secondary" disabled>Reveal</button>
+    <button id="continue" class="ghost" disabled>Continue</button>
+  </div>
+  <p id="answer" class="muted"></p>
+  <p id="attempts" class="muted"></p>
+  <p id="stats" class="muted"></p>
+</div>
+
+</div>
+<script>
+const BASE_W=1178,BASE_H=776;
+const coords={
+    "1":{px:161,py:101},
+    "2":{px:84,py:349},
+    "3":{px:146,py:456},
+    "4":{px:295,py:474},
+    "5":{px:435,py:357},
+    "6":{px:618,py:522},
+    "7":{px:659,py:590},
+    "8":{px:649,py:381},
+    "9":{px:725,py:380},
+    "10":{px:660,py:227},
+    "11":{px:765,py:286},
+    "12":{px:846,py:239},
+    "13":{px:875,py:274},
+    "14":{px:801,py:621},
+    "15":{px:883,py:455},
+    "16":{px:971,py:465},
+    "17":{px:1010,py:632},
+    "18":{px:997,py:306},
+    "19":{px:1047,py:242},
+    "20":{px:1093,py:182},
+    "A":{px:758,py:125},
+    "B":{px:780,py:209},
+    "C":{px:859,py:175},
+    "D":{px:902,py:237},
+    "E":{px:956,py:189},
+    "F":{px:508,py:240},
+    "G":{px:908,py:591},
+    "H":{px:105,py:627},
+    "I":{px:360,py:232},
+    "J":{px:232,py:305},
+    "K":{px:528,py:84},
+    "L":{px:259,py:428},
+    "M":{px:436,py:575},
+    "N":{px:439,py:144},
+    "O":{px:443,py:276},
+    "Q":{px:715,py:267},
+    "R":{px:829,py:349},
+    "S":{px:807,py:448},
+    "T":{px:1021,py:172},
+    "U":{px:208,py:644},
+    "X":{px:286,py:112},
+    "Y":{px:1069,py:62}
+};
+const cities={"1":"Seattle","2":"San Francisco","3":"Los Angeles","4":"Phoenix","5":"Denver","6":"Dallas","7":"Houston","8":"Kansas City","9":"St. Louis","10":"Minneapolis","11":"Chicago","12":"Detroit","13":"Cleveland","14":"New Orleans","15":"Atlanta","16":"Charleston","17":"Miami","18":"Washington, D.C.","19":"New York City","20":"Boston"};
+const landmarks={"A":"Lake Superior","B":"Lake Michigan","C":"Lake Huron","D":"Lake Erie","E":"Lake Ontario","F":"Pine Ridge Reservation","G":"Gulf of Mexico","H":"Bering Strait","I":"Yellowstone National Park","J":"Great Basin","K":"100th Meridian","L":"Colorado River","M":"Rio Grande","N":"Missouri River","O":"Platte River","Q":"Mississippi River","R":"Ohio River","S":"Tennessee River","T":"Hudson River","U":"Yukon River","X":"Rocky Mountains","Y":"Appalachian Mountains"};
+const dict={...cities,...landmarks};
+
+// Fuzzy helpers (extra leniency for "Appalachian Mountains")
+const aliases = {
+  "washington, d.c.":["washington dc","washington d c","washington d.c","dc"],
+  "new york city":["nyc","new york"],
+  "st. louis":["st louis","saint louis"],
+  "los angeles":["la","l.a."],
+  "gulf of mexico":["gulf"],
+  "yellowstone national park":["yellowstone"],
+  "rocky mountains":["rockies","rocky mountain"],
+  "appalachian mountains":[
+    "appalachians","appalachian","appalachia","appalachian mtns",
+    "appilacian mountians","appalachian mountians","appalacian mountains",
+    "apalachian mountains","appalachain mountains","appalatian mountains",
+    "appalachian montains","appalacian mountians","appalachian muntains"
+  ],
+  "rio grande":["rio-grande"],
+  "colorado river":["colorado"],
+  "mississippi river":["mississippi","ms river","the mississippi"],
+  "ohio river":["ohio"],
+  "tennessee river":["tennessee"],
+  "hudson river":["hudson"],
+  "yukon river":["yukon"],
+  "pine ridge reservation":["pine ridge"],
+  "kansas city":["kc"]
+};
+function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim();}
+function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;const d=Array.from({length:m+1},(_,i)=>Array(n+1).fill(0));for(let i=0;i<=m;i++)d[i][0]=i;for(let j=0;j<=n;j++)d[0][j]=j;for(let i=1;i<=m;i++){for(let j=1;j<=n;j++){const c=a[i-1]===b[j-1]?0:1;d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c);}}return d[m][n];}
+function fuzzy(input,target){
+  const a=norm(input), t=norm(target);
+  if(!a) return false;
+  if(a===t) return true;
+  const al=aliases[t]||[];
+  if(al.some(x=> norm(x)===a)) return true;
+  if(a.length>=3 && (t.includes(a) || a.includes(t))) return true;
+  const dist=lev(a,t), thr = (t==='appalachian mountains'? Math.max(3, Math.floor(t.length*0.35)) : Math.max(2, Math.floor(t.length*0.2)));
+  return dist<=thr;
+}
+
+const mapWrap=document.getElementById('mapWrap'), keysLayer=document.getElementById('keys'), toggleKeysBtn=document.getElementById('toggleKeys');
+const startBtn=document.getElementById('start'), restartBtn=document.getElementById('restart'), question=document.getElementById('question'), phaseEl=document.getElementById('phase');
+const guess=document.getElementById('guess'), submit=document.getElementById('submit'), reveal=document.getElementById('reveal'), cont=document.getElementById('continue');
+const answer=document.getElementById('answer'), attempts=document.getElementById('attempts'), stats=document.getElementById('stats');
+const timerBox=document.getElementById('timer'); const timerText=timerBox.querySelector('.t');
+const timeFill=document.getElementById('timefill');
+
+let keysOn=true;
+let initialPool=[], reviewPool=[], cur=null, tries=0, inReview=false;
+const mastered=new Set(); const totalCount=Object.keys(dict).length;
+let waitingContinue=false;
+let timerId=null, timeLeft=0;
+
+// Timer settings
+const TIME_LIMIT_SEC = 30;
+const PAUSE_AFTER_REVEAL_MS = 5000;
+
+// Aspect check — warn if the image ratio differs from the coordinate basis
+(()=>{
+  const BASE_AR=BASE_W/BASE_H; const img=new Image();
+  img.onload=()=>{ const ar=img.naturalWidth/img.naturalHeight; const diff=Math.abs(ar-BASE_AR)/BASE_AR;
+    if(diff>0.02){ const w=document.getElementById('ratioWarn'); if(w) w.style.display='block'; }
+  };
+  img.src='IMG_0074.jpeg';
+})();
+
+function setTimerVis(){
+  timerBox.classList.toggle('warn', timeLeft>0 && timeLeft<=5);
+  timerText.textContent = timeLeft>0 ? `${timeLeft}s` : '--';
+  const frac = Math.max(0, Math.min(1, timeLeft / TIME_LIMIT_SEC));
+  timeFill.style.transform = `scaleX(${frac})`;
+}
+function clearTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } timeLeft=0; setTimerVis(); }
+function startTimer(){
+  clearTimer();
+  timeLeft = TIME_LIMIT_SEC; setTimerVis();
+  timerId = setInterval(()=>{
+    if(waitingContinue){ clearTimer(); return; }
+    timeLeft--; setTimerVis();
+    if(timeLeft<=0){ clearInterval(timerId); timerId=null; onTimeout(); }
+  }, 1000);
+}
+
+function renderKeys(current=null, masteredSet=new Set()){keysLayer.innerHTML='';if(!keysOn)return;for(const [k,p] of Object.entries(coords)){const e=document.createElement('div');e.className='key';if(k===current)e.classList.add('current');if(masteredSet.has(k))e.classList.add('ok');e.style.left=(p.px/BASE_W*100)+'%';e.style.top=(p.py/BASE_H*100)+'%';e.textContent=k;keysLayer.appendChild(e);}}
+toggleKeysBtn.onclick=()=>{keysOn=!keysOn;toggleKeysBtn.textContent=keysOn?'Hide Keys':'Show Keys';renderKeys(cur,mastered);};
+window.addEventListener('resize',()=>renderKeys(cur,mastered));
+
+function setPhase(){phaseEl.textContent=inReview?'Review (3 tries + Reveal + Timer)':'First pass (3 tries + Reveal + Timer)';}
+function statsLine(){const remaining=(inReview?reviewPool.length:initialPool.length);stats.textContent=`Solved: ${mastered.size} / ${totalCount} • Remaining: ${remaining}`;} 
+function enableInputs(on){guess.disabled=!on;submit.disabled=!on;reveal.disabled=!on;cont.disabled=on;}
+function startGame(){initialPool=Object.keys(dict);reviewPool=[];cur=null;tries=0;inReview=false;mastered.clear();waitingContinue=false;setPhase();enableInputs(true);restartBtn.disabled=false;nextItem();}
+function randIdx(arr){return Math.floor(Math.random()*arr.length);}
+
+function nextItem(){answer.textContent='';attempts.textContent='';waitingContinue=false;enableInputs(true); clearTimer();
+  if(!inReview){if(initialPool.length===0){inReview=true;setPhase();if(reviewPool.length===0)return finish();}
+    else{cur=initialPool[randIdx(initialPool)];tries=0;question.textContent=`Label ${cur} — type the place name`;guess.value='';guess.focus();renderKeys(cur,mastered);statsLine(); startTimer(); return;}}
+  if(reviewPool.length===0)return finish();
+  cur=reviewPool[randIdx(reviewPool)];tries=0;question.textContent=`Label ${cur} — type the place name (review)`;guess.value='';guess.focus();renderKeys(cur,mastered);statsLine(); startTimer();
+}
+
+function finish(){enableInputs(false);clearTimer();cont.disabled=true;question.textContent='🎉 Map Review Complete!';phaseEl.textContent='Complete';renderKeys(null,mastered);statsLine();}
+
+function submitAns(){if(waitingContinue)return;if(!cur)return;const want=dict[cur];const val=guess.value;const good=fuzzy(val,want);
+  if(!inReview){handleTry(good,want,'first');} else {handleTry(good,want,'review');}
+  statsLine();
+}
+
+function handleTry(good,want,phase){
+  if(good){mastered.add(cur); if(phase==='first')initialPool=initialPool.filter(k=>k!==cur); else reviewPool=reviewPool.filter(k=>k!==cur); answer.textContent='✅ Correct'; nextItem();}
+  else{tries++; if(tries<3){answer.textContent='❌ Try again';attempts.textContent=`Attempts on this item: ${tries}/3`;guess.focus();guess.select();}
+       else{answer.textContent=`ℹ️ Answer: ${want}`; if(phase==='first'){if(!reviewPool.includes(cur))reviewPool.push(cur); initialPool=initialPool.filter(k=>k!==cur);}
+            waitingContinue=true; enableInputs(false); clearTimer();}}
+}
+
+function revealAns(){if(!cur)return;const want=dict[cur];answer.textContent=`ℹ️ Answer: ${want}`; if(!inReview){if(!reviewPool.includes(cur))reviewPool.push(cur);initialPool=initialPool.filter(k=>k!==cur);} waitingContinue=true; enableInputs(false); clearTimer();}
+function doContinue(){if(!waitingContinue)return;nextItem();}
+
+// TIMEOUT: auto-reveal + auto-advance (counts as missed)
+function onTimeout(){
+  if(!cur) return;
+  const want = dict[cur];
+  if(!inReview){
+    if(!reviewPool.includes(cur)) reviewPool.push(cur);
+    initialPool = initialPool.filter(k=>k!==cur);
+  }
+  answer.textContent = `⏰ Time's up — Answer: ${want}`;
+  enableInputs(false);
+  setTimeout(()=>{ nextItem(); }, PAUSE_AFTER_REVEAL_MS);
+}
+
+start.onclick=startGame;restart.onclick=startGame;submit.onclick=submitAns;reveal.onclick=revealAns;cont.onclick=doContinue;
+guess.addEventListener('keydown',e=>{if(e.key==='Enter')submitAns();});
+
+renderKeys();
+</script>
+</body>
+</html>
